@@ -1,0 +1,27 @@
+<!-- 
+이 파일은 배드민턴 타격 사운드를 저장할 위치입니다.
+
+사용 방법:
+1. 배드민턴 타격 사운드 파일을 다운로드하세요
+2. 이 파일을 삭제하고 실제 오디오 파일(hit.mp3)을 여기에 저장하세요
+3. MP3 또는 WAV 형식 사용 가능
+
+추천 무료 사운드 사이트:
+- Freesound: https://freesound.org/search/?q=badminton+hit
+- Zapsplat: https://www.zapsplat.com/sound-effect-category/sports/
+- Mixkit: https://mixkit.co/free-sound-effects/sports/
+
+검색 키워드:
+- "badminton hit"
+- "racket hit"
+- "shuttlecock hit"
+- "tennis hit" (유사한 소리)
+- "whoosh hit"
+
+대체 사운드:
+임시로 다음 무료 사운드를 사용할 수 있습니다:
+https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3
+
+또는 src/App.tsx에서 사운드 URL을 직접 변경:
+const hitSound = useSound('원하는_URL');
+-->
