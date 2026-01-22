@@ -10,6 +10,27 @@ interface GameUIProps {
 }
 
 // 스타일 상수 (리렌더링마다 재생성 방지)
+const walletStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 10,
+  left: 10,
+  maxWidth: 'calc(100% - 20px)',
+  fontSize: 12,
+  lineHeight: 1.2,
+  color: 'white',
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  padding: '8px 10px',
+  borderRadius: 5,
+  textShadow: '1px 1px 0 #000',
+  zIndex: 10,
+  userSelect: 'text',
+  fontFamily: 'monospace',
+  // "안짤리고 전부 출력"을 위해 줄바꿈/강제 분절 허용
+  whiteSpace: 'normal',
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-all'
+};
+
 const scoreStyle: React.CSSProperties = {
   position: 'absolute',
   top: 40,
@@ -75,6 +96,20 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
 
   return (
     <>
+      {/* 지갑 주소 표시 (cert_credentials.account) */}
+      <div style={walletStyle}>
+        {(() => {
+          try {
+            const stored = localStorage.getItem('cert_credentials');
+            if (!stored) return 'Wallet: (not logged in)';
+            const parsed = JSON.parse(stored) as { account?: string };
+            return `Wallet: ${parsed.account ?? '(unknown)'}`;
+          } catch {
+            return 'Wallet: (invalid credentials)';
+          }
+        })()}
+      </div>
+
       {/* 점수 표시 */}
       <div style={scoreStyle}>
         {score}
