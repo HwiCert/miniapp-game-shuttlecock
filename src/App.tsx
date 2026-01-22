@@ -4,6 +4,7 @@ import { GAME_CONFIG } from './constants/gameConfig';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useCollision } from './hooks/useCollision';
 import { useSound } from './hooks/useSound';
+import { executeUseFrom } from './sdk/asset1155';
 import { Shuttlecock } from './components/Shuttlecock';
 import { Pipe } from './components/Pipe';
 import { Coin } from './components/Coin';
@@ -11,7 +12,7 @@ import { Ground } from './components/Ground';
 import { GameUI } from './components/GameUI';
 import { HitEffect } from './components/HitEffect';
 import { PasskeyAuthGate } from './components/PasskeyAuthGate';
-import { SeededRandom, getDailySeed, getTodaySeedInfo } from './utils/seededRandom';
+import { SeededRandom, getHourlySeedUTC, getWeeklySeedUTC } from './utils/seededRandom';
 import { gameContainerStyle, gameCanvasStyle, cloudBackgroundStyle } from './constants/styles';
 
 const App: React.FC = () => {
@@ -20,6 +21,8 @@ const App: React.FC = () => {
   const [gameHeight, setGameHeight] = useState(window.innerHeight);
   
   const [gameState, setGameState] = useState<GameState>('ready');
+  const [gameMode, setGameMode] = useState<'normal' | 'weekly' | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [coinScore, setCoinScore] = useState(0);
   const [bird, setBird] = useState<BirdType>({
@@ -43,22 +46,13 @@ const App: React.FC = () => {
   const coinIdCounter = useRef(0);
   const lastPipeSpawn = useRef(0);
   const seededRandom = useRef<SeededRandom | null>(null);
-  const [seedInfo, setSeedInfo] = useState({ seed: 0, date: '' });
+  const [seedInfo, setSeedInfo] = useState({ seed: 0 });
   const { checkCollision } = useCollision(gameHeight);
   
   // 배드민턴 타격 사운드
   const hitSound = useSound('/hit.mp3');
 
-  // 시드 초기화
-  useEffect(() => {
-    const dailySeed = getDailySeed();
-    seededRandom.current = new SeededRandom(dailySeed);
-    
-    // 오늘의 시드 정보
-    const info = getTodaySeedInfo();
-    setSeedInfo(info);
-    console.log(`🎮 Daily Seed: ${info.seed} (${info.date} UTC)`);
-  }, []);
+  // 시드 PRNG는 "게임 시작 버튼"에서 결정된 시드로 초기화/리셋한다.
 
   // 화면 크기 변경 감지
   useLayoutEffect(() => {
@@ -115,17 +109,89 @@ const App: React.FC = () => {
     coinIdCounter.current = 0;
     lastPipeSpawn.current = 0;
     
-    // 시드 리셋 (매일 동일한 시퀀스)
-    if (seededRandom.current) {
-      const dailySeed = getDailySeed();
-      seededRandom.current.setSeed(dailySeed);
-    }
   }, [gameWidth, gameHeight]);
 
-  // 게임 시작
+  const ensureSeed = useCallback((seed: number) => {
+    if (!seededRandom.current) {
+      seededRandom.current = new SeededRandom(seed);
+    } else {
+      seededRandom.current.setSeed(seed);
+    }
+    setSeedInfo({ seed });
+  }, []);
+
+  const consumeWeeklyChallengeToken = useCallback(async () => {
+    const impl = import.meta.env.VITE_1155_IMPLEMENTATION_ADDRESS;
+    if (!impl || !impl.startsWith('0x')) {
+      throw new Error('VITE_1155_IMPLEMENTATION_ADDRESS 가 설정되어 있지 않습니다.');
+    }
+
+    // 요청사항 고정값
+    const tokenId = 893999641n;
+    const amount = 1n;
+
+    // holder = 내 지갑주소
+    const stored = localStorage.getItem('cert_credentials');
+    if (!stored) throw new Error('No credentials found');
+    const parsed = JSON.parse(stored) as { account?: string };
+    const holder = parsed.account;
+    if (!holder || !holder.startsWith('0x')) throw new Error('Invalid holder address');
+
+    await executeUseFrom({
+      implementationAddress: impl as any,
+      holder: holder as any,
+      id: tokenId,
+      amount,
+    });
+  }, []);
+
+  // 게임 시작(일반): 현재 UTC 연/월/일/시간 기반 시드
   const startGame = useCallback(() => {
+    setGameMode('normal');
+    const seed = getHourlySeedUTC();
+    ensureSeed(seed);
     resetGame();
     setGameState('playing');
+  }, [ensureSeed, resetGame]);
+
+  // 주간 도전: Use 성공 → 3,2,1 → 게임 시작
+  const startWeeklyChallenge = useCallback(async () => {
+    setGameMode('weekly');
+
+    await consumeWeeklyChallengeToken();
+
+    const seed = getWeeklySeedUTC();
+    ensureSeed(seed);
+    resetGame();
+
+    setCountdown(3);
+    setGameState('countdown');
+  }, [consumeWeeklyChallengeToken, ensureSeed, resetGame]);
+
+  // countdown 진행
+  useEffect(() => {
+    if (gameState !== 'countdown') return;
+    if (countdown === null) return;
+
+    if (countdown <= 0) {
+      setCountdown(null);
+      setGameState('playing');
+      return;
+    }
+
+    const t = window.setTimeout(() => {
+      setCountdown(prev => (prev === null ? prev : prev - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(t);
+  }, [countdown, gameState]);
+
+  // 시작 화면으로 나가기
+  const exitToStart = useCallback(() => {
+    resetGame();
+    setGameState('ready');
+    setGameMode(null);
+    setCountdown(null);
   }, [resetGame]);
 
   // 점프 (타격 효과 추가)
@@ -333,14 +399,26 @@ const App: React.FC = () => {
   // 입력 처리 (키보드, 마우스, 터치)
   useEffect(() => {
     const handleInput = (e: Event) => {
+      // UI 버튼 클릭/터치는 게임 입력으로 처리하지 않음
+      const target = e.target;
+      if (target instanceof HTMLElement) {
+        if (target.closest('button')) return;
+      }
+
       e.preventDefault();
       
       if (gameState === 'ready') {
         startGame();
+      } else if (gameState === 'countdown') {
+        // 카운트다운 중 입력 무시
       } else if (gameState === 'playing') {
         jump();
       } else if (gameState === 'gameOver') {
-        startGame();
+        if (gameMode === 'weekly') {
+          void startWeeklyChallenge();
+        } else {
+          startGame();
+        }
       }
     };
 
@@ -359,7 +437,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', handleInput);
       window.removeEventListener('touchstart', handleInput);
     };
-  }, [gameState, startGame, jump]);
+  }, [gameState, gameMode, startGame, startWeeklyChallenge, jump]);
 
   // 게임 캔버스 스타일 메모이제이션
   const canvasStyle = useMemo(() => ({
@@ -400,9 +478,52 @@ const App: React.FC = () => {
             score={score}
             coinScore={coinScore}
             gameState={gameState} 
-            onStart={startGame}
-            dailySeed={seedInfo.seed}
+            onStart={() => {
+              if (gameState === 'ready') {
+                startGame();
+                return;
+              }
+              if (gameState === 'gameOver') {
+                if (gameMode === 'weekly') {
+                  void startWeeklyChallenge();
+                  return;
+                }
+                startGame();
+              }
+            }}
+            onWeeklyChallenge={() => void startWeeklyChallenge()}
+            onExit={exitToStart}
+            seed={seedInfo.seed}
           />
+
+          {/* 주간 도전 카운트다운 오버레이 */}
+          {gameState === 'countdown' && countdown !== null && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 50,
+                backgroundColor: 'rgba(0,0,0,0.35)'
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 120,
+                  fontWeight: 'bold',
+                  color: 'white',
+                  textShadow: '4px 4px 0 #000'
+                }}
+              >
+                {countdown}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </PasskeyAuthGate>

@@ -93,6 +93,60 @@ export const getDailySeed = (): number => {
 };
 
 /**
+ * 현재 연/월/일/시간(UTC) 기반 시드 생성
+ * - 같은 UTC 시간(예: 2026-01-22 08시)에는 모두 동일한 맵
+ * - 다음 시간(09시)부터는 새로운 시드
+ */
+export const getHourlySeedUTC = (): number => {
+  const now = new Date();
+  const utc = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      0,
+      0,
+      0
+    )
+  );
+
+  const year = utc.getUTCFullYear();
+  const month = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(utc.getUTCDate()).padStart(2, "0");
+  const hour = String(utc.getUTCHours()).padStart(2, "0");
+  const key = `HOUR-${year}-${month}-${day}-${hour}`;
+
+  const hash = hashString(key);
+  return 100000000000 + (hash % 900000000000);
+};
+
+/**
+ * 주간 도전 시드(UTC, 월요일 00:00 기준)
+ * - 월~일은 동일 시드
+ * - 월요일 00:00 UTC가 되는 순간 새 시드로 교체
+ */
+export const getWeeklySeedUTC = (): number => {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+
+  const dayOfWeek = now.getUTCDay(); // 0=Sun ... 1=Mon ... 6=Sat
+  const daysSinceMonday = (dayOfWeek + 6) % 7; // Mon=0, Tue=1, ... Sun=6
+
+  const monday = new Date(Date.UTC(y, m, d - daysSinceMonday, 0, 0, 0, 0));
+
+  const year = monday.getUTCFullYear();
+  const month = String(monday.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(monday.getUTCDate()).padStart(2, "0");
+  const key = `WEEK-${year}-${month}-${day}`;
+
+  const hash = hashString(key);
+  return 100000000000 + (hash % 900000000000);
+};
+
+/**
  * 오늘의 시드 정보 반환 (디버깅/표시용)
  */
 export const getTodaySeedInfo = (): { seed: number; date: string } => {

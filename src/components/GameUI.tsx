@@ -6,7 +6,9 @@ interface GameUIProps {
   coinScore: number;
   gameState: GameState;
   onStart: () => void;
-  dailySeed?: number;
+  onWeeklyChallenge: () => void;
+  onExit: () => void;
+  seed?: number;
 }
 
 // 스타일 상수 (리렌더링마다 재생성 방지)
@@ -84,7 +86,7 @@ const buttonBaseStyle: React.CSSProperties = {
   fontWeight: 'bold'
 };
 
-const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, onStart, dailySeed }) => {
+const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, onStart, onWeeklyChallenge, onExit, seed }) => {
   // 버튼 상호작용 최적화
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.transform = 'scale(0.95)';
@@ -141,9 +143,9 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
       </div>
 
       {/* 데일리 시드 정보 */}
-      {dailySeed && (
+      {seed && (
         <div style={seedInfoStyle}>
-          #{dailySeed}
+          #{seed}
         </div>
       )}
 
@@ -158,7 +160,7 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
               textShadow: '3px 3px 0 #000'
             }}
           >
-            Vird
+            ShuttleCock
           </h1>
           <p
             style={{
@@ -169,16 +171,26 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
               fontWeight: 'bold'
             }}
           >
-            매일 새로운 도전!
+            매주 새로운 도전!
           </p>
-          <button
-            onClick={onStart}
-            style={{ ...buttonBaseStyle, backgroundColor: '#4CAF50' }}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-          >
-            시작하기
-          </button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={onStart}
+              style={{ ...buttonBaseStyle, backgroundColor: '#4CAF50', padding: '15px 28px' }}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+            >
+              시작하기
+            </button>
+            <button
+              onClick={onWeeklyChallenge}
+              style={{ ...buttonBaseStyle, backgroundColor: '#2196F3', padding: '15px 28px' }}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+            >
+              주간 도전
+            </button>
+          </div>
           <p
             style={{
               marginTop: 30,
@@ -187,7 +199,7 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
               textAlign: 'center'
             }}
           >
-            클릭 또는 터치하여 날갯짓
+            클릭 또는 터치
           </p>
         </div>
       )}
@@ -226,14 +238,24 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
               Coins: {coinScore}
             </p>
           </div>
-          <button
-            onClick={onStart}
-            style={{ ...buttonBaseStyle, backgroundColor: '#FF9800' }}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-          >
-            다시 시작
-          </button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={onStart}
+              style={{ ...buttonBaseStyle, backgroundColor: '#FF9800', padding: '15px 28px' }}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+            >
+              다시 시작
+            </button>
+            <button
+              onClick={onExit}
+              style={{ ...buttonBaseStyle, backgroundColor: '#607D8B', padding: '15px 28px' }}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+            >
+              나가기
+            </button>
+          </div>
         </div>
       )}
     </>

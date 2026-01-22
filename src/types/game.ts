@@ -29,7 +29,7 @@ export interface Coin {
   collected: boolean;
 }
 
-export type GameState = 'ready' | 'playing' | 'gameOver';
+export type GameState = 'ready' | 'countdown' | 'playing' | 'gameOver';
 
 export interface GameConfig {
   gravity: number;

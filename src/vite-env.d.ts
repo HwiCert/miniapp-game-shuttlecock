@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_OFFCHAIN_INTERNAL_API_URL?: string;
   readonly VITE_PASSKEY_SCOPE_NAME?: string;
+  readonly VITE_1155_IMPLEMENTATION_ADDRESS?: string;
 }
 
 interface ImportMeta {
