@@ -178,18 +178,21 @@ const App: React.FC = () => {
           `holder: ${String(params.holder)}`,
           `tokenId: ${params.id.toString()}`,
           `amount: ${params.amount.toString()}`,
+          `livenessSignature: 0x`,
           `implementationAddress: ${String(params.implementationAddress)}`,
         ].join('\n')
       );
 
       // 1) Check
-      await executeCheck({
+      const checkResult = await executeCheck({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
+        livenessSignature: "0x",
       });
       appendWeeklyLog('API: Check 성공!');
+      appendWeeklyLog(`API: Check result = ${checkResult}`);
 
       // 2) Use
       setWeeklyUseState('using');
@@ -203,13 +206,14 @@ const App: React.FC = () => {
           `implementationAddress: ${String(params.implementationAddress)}`,
         ].join('\n')
       );
-      await executeUseFrom({
+      const useResult = await executeUseFrom({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
       });
       appendWeeklyLog('API: Use 성공!');
+      appendWeeklyLog(`API: Use result = ${useResult}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setWeeklyUseState('error');

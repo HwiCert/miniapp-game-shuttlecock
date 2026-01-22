@@ -149,7 +149,13 @@ export async function relayExecuteWithWebAuthn(
     body: JSON.stringify(payload),
   });
 
-  const data = await parseApiResponse<{ tx?: string; txHash?: string; hash?: string }>(
+  const data = await parseApiResponse<{
+    tx?: string;
+    txHash?: string;
+    hash?: string;
+    intentId?: string;
+    intent_id?: string;
+  }>(
     resp,
     `Relayer ${endpoint} failed`
   );
@@ -160,7 +166,16 @@ export async function relayExecuteWithWebAuthn(
     (data as { txHash?: string }).txHash ??
     (data as { hash?: string }).hash;
 
+  const intentId =
+    (data as { intentId?: string }).intentId ??
+    (data as { intent_id?: string }).intent_id;
+
   if (!tx || typeof tx !== "string") {
+    // 일부 relayer는 비동기로 처리하고 intentId만 반환할 수 있음
+    if (intentId && typeof intentId === "string") {
+      return `intent:${intentId}`;
+    }
+
     const keys = data && typeof data === "object" ? Object.keys(data) : [];
     throw new Error(
       `Relayer response missing tx hash (endpoint=${endpoint}, keys=${keys.join(",") || "none"})`
