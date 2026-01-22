@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [weeklyUseState, setWeeklyUseState] = useState<'idle' | 'checking' | 'using' | 'error'>('idle');
   const [weeklyUseError, setWeeklyUseError] = useState<string | null>(null);
+  const [weeklyStatusLogs, setWeeklyStatusLogs] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [coinScore, setCoinScore] = useState(0);
   const [bird, setBird] = useState<BirdType>({
@@ -147,6 +148,13 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const appendWeeklyLog = useCallback((msg: string) => {
+    setWeeklyStatusLogs(prev => {
+      const next = [...prev, msg];
+      return next.slice(-20);
+    });
+  }, []);
+
   // 게임 시작(일반): 현재 UTC 연/월/일/시간 기반 시드
   const startGame = useCallback(() => {
     setGameMode('normal');
@@ -161,6 +169,8 @@ const App: React.FC = () => {
     setGameMode('weekly');
     setWeeklyUseState('checking');
     setWeeklyUseError(null);
+    setWeeklyStatusLogs([]);
+    appendWeeklyLog('Check 시작…');
 
     try {
       const params = getWeeklyChallengeParams();
@@ -172,19 +182,23 @@ const App: React.FC = () => {
         id: params.id,
         amount: params.amount,
       });
+      appendWeeklyLog('Check 성공!');
 
       // 2) Use
       setWeeklyUseState('using');
+      appendWeeklyLog('Use 시작…');
       await executeUseFrom({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
       });
+      appendWeeklyLog('Use 성공!');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setWeeklyUseState('error');
       setWeeklyUseError(msg);
+      appendWeeklyLog(`실패: ${msg}`);
       // 시작 화면으로 복귀
       setCountdown(null);
       setGameState('ready');
@@ -199,6 +213,7 @@ const App: React.FC = () => {
     setCountdown(3);
     setGameState('countdown');
     setWeeklyUseState('idle');
+    appendWeeklyLog('카운트다운 시작');
   }, [ensureSeed, getWeeklyChallengeParams, resetGame]);
 
   // countdown 진행
@@ -225,6 +240,8 @@ const App: React.FC = () => {
     setGameState('ready');
     setGameMode(null);
     setCountdown(null);
+    setWeeklyUseState('idle');
+    setWeeklyUseError(null);
   }, [resetGame]);
 
   // 점프 (타격 효과 추가)
@@ -527,6 +544,7 @@ const App: React.FC = () => {
             onWeeklyChallenge={() => void startWeeklyChallenge()}
             onExit={exitToStart}
             seed={seedInfo.seed}
+            statusLogs={weeklyStatusLogs}
           />
 
           {/* 주간 도전 Use 처리 오버레이 (로딩/에러) */}
