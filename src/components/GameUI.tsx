@@ -64,9 +64,12 @@ const seedInfoStyle: React.CSSProperties = {
 };
 
 const statusLogStyle: React.CSSProperties = {
+  // "중간 스코어" 아래쪽에 로그가 보이도록 중앙 정렬
+  // score(top:40) + coin(top:90) 아래로 배치
   position: 'absolute',
-  top: 52, // seedInfoStyle(약 10 + padding) 아래로
-  right: 10,
+  top: 130,
+  left: '50%',
+  transform: 'translateX(-50%)',
   fontSize: 12,
   color: 'white',
   backgroundColor: 'rgba(0,0,0,0.45)',
@@ -76,9 +79,11 @@ const statusLogStyle: React.CSSProperties = {
   zIndex: 10,
   userSelect: 'none',
   fontFamily: 'monospace',
-  maxWidth: 'min(520px, calc(100% - 20px))',
+  width: 'min(520px, calc(100% - 20px))',
   overflowWrap: 'anywhere',
-  whiteSpace: 'pre-wrap'
+  whiteSpace: 'pre-wrap',
+  maxHeight: 170,
+  overflowY: 'auto'
 };
 
 const overlayStyle: React.CSSProperties = {
@@ -168,10 +173,10 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
         </div>
       )}
 
-      {/* 주간 도전 API 상태 로그 (우측 상단, 시드 밑) */}
+      {/* 주간 도전 API 상태 로그 (중앙 스코어 아래) */}
       {statusLogs && statusLogs.length > 0 && (
         <div style={statusLogStyle}>
-          {statusLogs.slice(-6).map((line, idx) => (
+          {statusLogs.map((line, idx) => (
             <div key={`${idx}-${line}`}>{line}</div>
           ))}
         </div>

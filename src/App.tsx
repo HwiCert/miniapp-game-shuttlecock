@@ -4,7 +4,7 @@ import { GAME_CONFIG } from './constants/gameConfig';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useCollision } from './hooks/useCollision';
 import { useSound } from './hooks/useSound';
-import { executeCheck, executeUseFrom } from './sdk/asset1155';
+import { executeCheck, executeUseFrom, fetch1155ImplementationAddress } from './sdk/asset1155';
 import { Shuttlecock } from './components/Shuttlecock';
 import { Pipe } from './components/Pipe';
 import { Coin } from './components/Coin';
@@ -123,11 +123,9 @@ const App: React.FC = () => {
     setSeedInfo({ seed });
   }, []);
 
-  const getWeeklyChallengeParams = useCallback(() => {
-    const impl = import.meta.env.VITE_1155_IMPLEMENTATION_ADDRESS;
-    if (!impl || !impl.startsWith('0x')) {
-      throw new Error('VITE_1155_IMPLEMENTATION_ADDRESS 가 설정되어 있지 않습니다.');
-    }
+  const getWeeklyChallengeParams = useCallback(async () => {
+    // 템플릿 SDK의 use1155ImplementationAddress와 동일한 API로 구현 주소를 조회
+    const impl = await fetch1155ImplementationAddress();
 
     // 요청사항 고정값
     const tokenId = 893999641n;
@@ -170,10 +168,19 @@ const App: React.FC = () => {
     setWeeklyUseState('checking');
     setWeeklyUseError(null);
     setWeeklyStatusLogs([]);
-    appendWeeklyLog('Check 시작…');
+    appendWeeklyLog('API: Check 시작…');
 
     try {
-      const params = getWeeklyChallengeParams();
+      const params = await getWeeklyChallengeParams();
+      appendWeeklyLog(
+        [
+          'API: Check params',
+          `holder: ${String(params.holder)}`,
+          `tokenId: ${params.id.toString()}`,
+          `amount: ${params.amount.toString()}`,
+          `implementationAddress: ${String(params.implementationAddress)}`,
+        ].join('\n')
+      );
 
       // 1) Check
       await executeCheck({
@@ -182,23 +189,32 @@ const App: React.FC = () => {
         id: params.id,
         amount: params.amount,
       });
-      appendWeeklyLog('Check 성공!');
+      appendWeeklyLog('API: Check 성공!');
 
       // 2) Use
       setWeeklyUseState('using');
-      appendWeeklyLog('Use 시작…');
+      appendWeeklyLog('API: Use 시작…');
+      appendWeeklyLog(
+        [
+          'API: Use params',
+          `holder: ${String(params.holder)}`,
+          `tokenId: ${params.id.toString()}`,
+          `amount: ${params.amount.toString()}`,
+          `implementationAddress: ${String(params.implementationAddress)}`,
+        ].join('\n')
+      );
       await executeUseFrom({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
       });
-      appendWeeklyLog('Use 성공!');
+      appendWeeklyLog('API: Use 성공!');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setWeeklyUseState('error');
       setWeeklyUseError(msg);
-      appendWeeklyLog(`실패: ${msg}`);
+      appendWeeklyLog(`API 실패: ${msg}`);
       // 시작 화면으로 복귀
       setCountdown(null);
       setGameState('ready');
@@ -214,7 +230,7 @@ const App: React.FC = () => {
     setGameState('countdown');
     setWeeklyUseState('idle');
     appendWeeklyLog('카운트다운 시작');
-  }, [ensureSeed, getWeeklyChallengeParams, resetGame]);
+  }, [appendWeeklyLog, ensureSeed, getWeeklyChallengeParams, resetGame]);
 
   // countdown 진행
   useEffect(() => {
