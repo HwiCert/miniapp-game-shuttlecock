@@ -12,6 +12,7 @@ import { Ground } from './components/Ground';
 import { GameUI } from './components/GameUI';
 import { HitEffect } from './components/HitEffect';
 import { PasskeyAuthGate } from './components/PasskeyAuthGate';
+import { Modal } from './components/Modal';
 import { SeededRandom, getHourlySeedUTC, getWeeklySeedUTC } from './utils/seededRandom';
 import { gameContainerStyle, gameCanvasStyle, cloudBackgroundStyle } from './constants/styles';
 
@@ -25,7 +26,14 @@ const App: React.FC = () => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [weeklyUseState, setWeeklyUseState] = useState<'idle' | 'checking' | 'using' | 'error'>('idle');
   const [weeklyUseError, setWeeklyUseError] = useState<string | null>(null);
-  const [weeklyStatusLogs, setWeeklyStatusLogs] = useState<string[]>([]);
+  const [weeklyErrorTitle, setWeeklyErrorTitle] = useState('주간 도전 티켓 사용 실패');
+  const [weeklyFailStage, setWeeklyFailStage] = useState<'check' | 'use' | null>(null);
+  const weeklyParamsRef = useRef<{
+    implementationAddress: any;
+    holder: any;
+    id: bigint;
+    amount: bigint;
+  } | null>(null);
   const [score, setScore] = useState(0);
   const [coinScore, setCoinScore] = useState(0);
   const [bird, setBird] = useState<BirdType>({
@@ -146,13 +154,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const appendWeeklyLog = useCallback((msg: string) => {
-    setWeeklyStatusLogs(prev => {
-      const next = [...prev, msg];
-      return next.slice(-20);
-    });
-  }, []);
-
   // 게임 시작(일반): 현재 UTC 연/월/일/시간 기반 시드
   const startGame = useCallback(() => {
     setGameMode('normal');
@@ -167,58 +168,38 @@ const App: React.FC = () => {
     setGameMode('weekly');
     setWeeklyUseState('checking');
     setWeeklyUseError(null);
-    setWeeklyStatusLogs([]);
-    appendWeeklyLog('API: Check 시작…');
+    setWeeklyErrorTitle('주간 티켓 보유 확인 중');
+    setWeeklyFailStage(null);
 
     try {
       const params = await getWeeklyChallengeParams();
-      appendWeeklyLog(
-        [
-          'API: Check params',
-          `holder: ${String(params.holder)}`,
-          `tokenId: ${params.id.toString()}`,
-          `amount: ${params.amount.toString()}`,
-          `livenessSignature: 0x`,
-          `implementationAddress: ${String(params.implementationAddress)}`,
-        ].join('\n')
-      );
+      weeklyParamsRef.current = params;
 
       // 1) Check
-      const checkResult = await executeCheck({
+      setWeeklyErrorTitle('주간 티켓 보유 확인 중');
+      await executeCheck({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
-        livenessSignature: "0x",
       });
-      appendWeeklyLog('API: Check 성공!');
-      appendWeeklyLog(`API: Check result = ${checkResult}`);
 
       // 2) Use
       setWeeklyUseState('using');
-      appendWeeklyLog('API: Use 시작…');
-      appendWeeklyLog(
-        [
-          'API: Use params',
-          `holder: ${String(params.holder)}`,
-          `tokenId: ${params.id.toString()}`,
-          `amount: ${params.amount.toString()}`,
-          `implementationAddress: ${String(params.implementationAddress)}`,
-        ].join('\n')
-      );
-      const useResult = await executeUseFrom({
+      setWeeklyErrorTitle('주간 티켓 사용 시도 중');
+      await executeUseFrom({
         implementationAddress: params.implementationAddress,
         holder: params.holder,
         id: params.id,
         amount: params.amount,
       });
-      appendWeeklyLog('API: Use 성공!');
-      appendWeeklyLog(`API: Use result = ${useResult}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setWeeklyUseState('error');
       setWeeklyUseError(msg);
-      appendWeeklyLog(`API 실패: ${msg}`);
+      // 어떤 단계에서 실패했는지(다시시도 로직용)
+      setWeeklyFailStage(weeklyUseState === 'using' ? 'use' : 'check');
+      setWeeklyErrorTitle(weeklyUseState === 'using' ? '주간 티켓 사용 실패' : '주간 티켓 미보유');
       // 시작 화면으로 복귀
       setCountdown(null);
       setGameState('ready');
@@ -233,8 +214,7 @@ const App: React.FC = () => {
     setCountdown(3);
     setGameState('countdown');
     setWeeklyUseState('idle');
-    appendWeeklyLog('카운트다운 시작');
-  }, [appendWeeklyLog, ensureSeed, getWeeklyChallengeParams, resetGame]);
+  }, [ensureSeed, getWeeklyChallengeParams, resetGame]);
 
   // countdown 진행
   useEffect(() => {
@@ -469,6 +449,12 @@ const App: React.FC = () => {
   // 입력 처리 (키보드, 마우스, 터치)
   useEffect(() => {
     const handleInput = (e: Event) => {
+      // 팝업(로딩/에러) 떠있는 동안은 게임 입력 완전 차단
+      if (weeklyUseState !== 'idle') {
+        e.preventDefault();
+        return;
+      }
+
       // UI 버튼 클릭/터치는 게임 입력으로 처리하지 않음
       const target = e.target;
       if (target instanceof HTMLElement) {
@@ -507,7 +493,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', handleInput);
       window.removeEventListener('touchstart', handleInput);
     };
-  }, [gameState, gameMode, startGame, startWeeklyChallenge, jump]);
+  }, [gameState, gameMode, weeklyUseState, startGame, startWeeklyChallenge, jump]);
 
   // 게임 캔버스 스타일 메모이제이션
   const canvasStyle = useMemo(() => ({
@@ -564,102 +550,77 @@ const App: React.FC = () => {
             onWeeklyChallenge={() => void startWeeklyChallenge()}
             onExit={exitToStart}
             seed={seedInfo.seed}
-            statusLogs={weeklyStatusLogs}
           />
 
-          {/* 주간 도전 Use 처리 오버레이 (로딩/에러) */}
-          {weeklyUseState !== 'idle' && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 60,
-                backgroundColor: 'rgba(0,0,0,0.55)',
-                padding: 24,
-                textAlign: 'center',
-                color: 'white'
-              }}
-            >
-              {weeklyUseState === 'checking' && (
-                <>
-                  <div style={{ fontSize: 20, fontWeight: 'bold' }}>
-                    주간 도전 자격 확인 중…
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
-                    Check 성공 후 티켓을 사용(Use)합니다.
-                  </div>
-                </>
-              )}
+          {/* 주간 도전 SDK 팝업 (로딩/실패 전부 모달로) */}
+          <Modal
+            open={weeklyUseState !== 'idle'}
+            title={weeklyErrorTitle}
+            message={
+              weeklyUseState === 'checking'
+                ? 'Check 요청 중입니다. 잠시만 기다려 주세요.'
+                : weeklyUseState === 'using'
+                  ? 'Use 요청 중입니다. 잠시만 기다려 주세요.'
+                  : weeklyUseError ?? 'Unknown error'
+            }
+            actions={
+              weeklyUseState === 'error'
+                ? [
+                    {
+                      label: '다시시도',
+                      variant: 'primary',
+                      onClick: () => {
+                        if (weeklyFailStage === 'use' && weeklyParamsRef.current) {
+                          // Use 단계에서만 실패한 경우: Use만 재시도
+                          const params = weeklyParamsRef.current;
+                          setGameMode('weekly');
+                          setWeeklyUseState('using');
+                          setWeeklyUseError(null);
+                          setWeeklyErrorTitle('주간 티켓 사용 시도 중');
+                          setWeeklyFailStage(null);
+                          void (async () => {
+                            try {
+                              await executeUseFrom({
+                                implementationAddress: params.implementationAddress,
+                                holder: params.holder,
+                                id: params.id,
+                                amount: params.amount,
+                              });
 
-              {weeklyUseState === 'using' && (
-                <>
-                  <div style={{ fontSize: 20, fontWeight: 'bold' }}>
-                    주간 도전 티켓 사용 중…
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
-                    패스키 인증/릴레이 처리가 완료되면 카운트다운 후 시작합니다.
-                  </div>
-                </>
-              )}
+                              const seed = getWeeklySeedUTC();
+                              ensureSeed(seed);
+                              resetGame();
+                              setCountdown(3);
+                              setGameState('countdown');
+                              setWeeklyUseState('idle');
+                            } catch (e) {
+                              const msg = e instanceof Error ? e.message : String(e);
+                              setWeeklyUseState('error');
+                              setWeeklyUseError(msg);
+                              setWeeklyFailStage('use');
+                              setWeeklyErrorTitle('주간 티켓 사용 실패');
+                            }
+                          })();
+                          return;
+                        }
 
-              {weeklyUseState === 'error' && (
-                <>
-                  <div style={{ fontSize: 20, fontWeight: 'bold' }}>
-                    주간 도전 티켓 사용 실패
-                  </div>
-                  {weeklyUseError && (
-                    <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9, maxWidth: 520 }}>
-                      {weeklyUseError}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                    <button
-                      type="button"
-                      onClick={() => void startWeeklyChallenge()}
-                      style={{
-                        fontSize: 18,
-                        padding: '12px 18px',
-                        borderRadius: 10,
-                        border: 'none',
-                        cursor: 'pointer',
-                        backgroundColor: '#2196F3',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      다시 시도
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
+                        // Check 단계 실패(또는 params 없음)면 전체 흐름 재시도
+                        void startWeeklyChallenge();
+                      },
+                    },
+                    {
+                      label: '닫기',
+                      variant: 'secondary',
+                      onClick: () => {
                         setWeeklyUseState('idle');
                         setWeeklyUseError(null);
-                      }}
-                      style={{
-                        fontSize: 18,
-                        padding: '12px 18px',
-                        borderRadius: 10,
-                        border: 'none',
-                        cursor: 'pointer',
-                        backgroundColor: '#607D8B',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      닫기
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+                        setWeeklyFailStage(null);
+                      },
+                    },
+                  ]
+                : undefined
+            }
+          />
 
           {/* 주간 도전 카운트다운 오버레이 */}
           {gameState === 'countdown' && countdown !== null && (

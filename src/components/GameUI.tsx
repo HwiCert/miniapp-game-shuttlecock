@@ -9,7 +9,6 @@ interface GameUIProps {
   onWeeklyChallenge: () => void;
   onExit: () => void;
   seed?: number;
-  statusLogs?: string[];
 }
 
 // 스타일 상수 (리렌더링마다 재생성 방지)
@@ -63,29 +62,6 @@ const seedInfoStyle: React.CSSProperties = {
   fontWeight: 'bold'
 };
 
-const statusLogStyle: React.CSSProperties = {
-  // "중간 스코어" 아래쪽에 로그가 보이도록 중앙 정렬
-  // score(top:40) + coin(top:90) 아래로 배치
-  position: 'absolute',
-  top: 130,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  fontSize: 12,
-  color: 'white',
-  backgroundColor: 'rgba(0,0,0,0.45)',
-  padding: '8px 12px',
-  borderRadius: 5,
-  textShadow: '1px 1px 0 #000',
-  zIndex: 10,
-  userSelect: 'none',
-  fontFamily: 'monospace',
-  width: 'min(520px, calc(100% - 20px))',
-  overflowWrap: 'anywhere',
-  whiteSpace: 'pre-wrap',
-  maxHeight: 170,
-  overflowY: 'auto'
-};
-
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
   top: 0,
@@ -110,7 +86,7 @@ const buttonBaseStyle: React.CSSProperties = {
   fontWeight: 'bold'
 };
 
-const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, onStart, onWeeklyChallenge, onExit, seed, statusLogs }) => {
+const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, onStart, onWeeklyChallenge, onExit, seed }) => {
   // 버튼 상호작용 최적화
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.transform = 'scale(0.95)';
@@ -170,15 +146,6 @@ const GameUIComponent: React.FC<GameUIProps> = ({ score, coinScore, gameState, o
       {seed && (
         <div style={seedInfoStyle}>
           #{seed}
-        </div>
-      )}
-
-      {/* 주간 도전 API 상태 로그 (중앙 스코어 아래) */}
-      {statusLogs && statusLogs.length > 0 && (
-        <div style={statusLogStyle}>
-          {statusLogs.map((line, idx) => (
-            <div key={`${idx}-${line}`}>{line}</div>
-          ))}
         </div>
       )}
 
