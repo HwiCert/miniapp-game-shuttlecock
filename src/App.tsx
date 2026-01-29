@@ -4,6 +4,7 @@ import { GAME_CONFIG } from './constants/gameConfig';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useCollision } from './hooks/useCollision';
 import { useSound } from './hooks/useSound';
+import hitMp3 from './assets/hit.mp3';
 import { executeCheck } from './sdk/asset1155/features/check/executeCheck';
 import { executeUseFrom } from './sdk/asset1155/features/use/executeUseFrom';
 import { fetch1155ImplementationAddress } from './sdk/asset1155/hooks/fetchImplementationAddress';
@@ -78,7 +79,7 @@ const App: React.FC = () => {
   const { checkCollision } = useCollision(gameHeight);
   
   // 배드민턴 타격 사운드
-  const hitSound = useSound('/hit.mp3');
+  const hitSound = useSound(hitMp3);
 
   // 시드 PRNG는 "게임 시작 버튼"에서 결정된 시드로 초기화/리셋한다.
 

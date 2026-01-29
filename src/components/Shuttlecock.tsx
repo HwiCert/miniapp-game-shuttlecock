@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Bird as BirdType } from '../types/game';
 import { GAME_CONFIG } from '../constants/gameConfig';
+import shuttlecockPng from '../assets/shuttlecock.png';
 
 interface ShuttlecockProps {
   bird: BirdType;
@@ -27,7 +28,7 @@ const ShuttlecockComponent: React.FC<ShuttlecockProps> = ({ bird }) => {
       }}
     >
       <img
-        src="/shuttlecock.png"
+        src={shuttlecockPng}
         alt="shuttlecock"
         style={{
           width: '100%',
